@@ -1,0 +1,24 @@
+name:                mtrand64
+version:             0.1.0.0
+synopsis:            Yet another implementation of MT19937 for Haskell
+-- description:
+homepage:            https://github.com/naohaq/mtrand-hs/
+license:             MIT
+license-file:        LICENSE
+author:              Naoyuki MORITA
+maintainer:          naoyuki.morita@gmail.com
+-- copyright:
+category:            Math, Statistics
+build-type:          Simple
+extra-source-files:  CHANGELOG.md, README.md
+cabal-version:       >=1.10
+
+library
+  exposed-modules: System.Random.MT64
+  -- other-modules:
+  -- other-extensions:
+  build-depends:       base >=4.12 && <4.13
+                       primitive >= 0.6
+                       vector >= 0.7
+  hs-source-dirs:      src
+  default-language:    Haskell2010
