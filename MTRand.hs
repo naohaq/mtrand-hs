@@ -6,17 +6,21 @@ module MTRand
     Gen
   , initGenRand64
   , initByArray64
+
   , GenIO
+  , GenST
 
   , saveState
   , restoreState
 
   , uniformWord64
   , uniformDouble
+  , uniformOpen0to1
   ) where
 
-import Control.Monad           (ap, liftM, unless, when)
-import Control.Monad.Primitive (PrimMonad, PrimBase, PrimState, unsafePrimToIO)
+import Control.Monad           (liftM, when)
+import Control.Monad.Primitive (PrimMonad, PrimState)
+import Control.Monad.ST        (ST)
 import Data.Bits               ((.&.), (.|.), shiftL, shiftR, xor)
 import Data.Int                (Int8, Int16, Int32, Int64)
 import Data.Vector.Generic     (Vector)
@@ -24,6 +28,12 @@ import Data.Word
 import qualified Data.Vector.Generic         as G
 import qualified Data.Vector.Unboxed         as I
 import qualified Data.Vector.Unboxed.Mutable as M
+
+newtype Gen s = Gen (M.MVector s Word64)
+
+type GenIO = Gen (PrimState IO)
+
+type GenST s = Gen (PrimState (ST s))
 
 nn :: Int
 nn = 312
@@ -48,10 +58,6 @@ um = 0xFFFFFFFF80000000
 lm :: Word64
 lm = 0x000000007FFFFFFF
 {-# INLINE lm #-}
-
-newtype Gen s = Gen (M.MVector s Word64)
-
-type GenIO = Gen (PrimState IO)
 
 initGenRand64 :: (PrimMonad m) => Word64 -> m (Gen (PrimState m))
 initGenRand64 seed = do
@@ -129,7 +135,7 @@ twist q i0 i1 i2 = do
     mt1 <- M.unsafeRead q i1
     mt2 <- M.unsafeRead q i2
     let x = (mt0 .&. um) .|. (mt1 .&. lm)
-    let mag = if (x .&. 1) == 0 then 0 else matrix_a
+    let mag = (x .&. 1) * matrix_a
     let mt' = mt2 `xor` (x `shiftR` 1) `xor` mag
     M.unsafeWrite q i0 mt'
 {-# INLINE twist #-}
@@ -137,10 +143,10 @@ twist q i0 i1 i2 = do
 uniformWord64 :: (PrimMonad m) => Gen (PrimState m) -> m Word64
 uniformWord64 (Gen q) = do
     mti <- fromIntegral `liftM` M.unsafeRead q mti_idx
-    when (mti >= nn) (do
+    when (mti >= nn) $ do
          fill0 q 0
          fill1 q (nn-mm)
-         twist q (nn-1) 0 (mm-1))
+         twist q (nn-1) 0 (mm-1)
     let mti' = if (mti >= nn) then 0 else mti
     x0  <- M.unsafeRead q mti'
     M.unsafeWrite q mti_idx (fromIntegral (mti'+1))
@@ -169,5 +175,12 @@ uniformDouble gen = do
     return v
 {-# INLINE uniformDouble #-}
 
+uniformOpen0to1 :: (PrimMonad m) => Gen (PrimState m) -> m Double
+uniformOpen0to1 gen = do
+    w <- uniformWord64 gen
+    let w' = w `shiftR` 12
+    let v  = (fromIntegral w' + 0.5) * (1.0/4503599627370496.0)
+    return v
+{-# INLINE uniformOpen0to1 #-}
 
 -- EOF
