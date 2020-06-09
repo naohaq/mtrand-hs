@@ -1,7 +1,7 @@
 {- -*- mode: haskell; coding: utf-8-unix -*-  -}
 {-# LANGUAGE BangPatterns, FlexibleContexts, ScopedTypeVariables #-}
 
-module MTRand
+module System.Random.MT64
   (
     Gen
   , initGenRand64
@@ -22,7 +22,6 @@ import Control.Monad           (liftM, when)
 import Control.Monad.Primitive (PrimMonad, PrimState)
 import Control.Monad.ST        (ST)
 import Data.Bits               ((.&.), (.|.), shiftL, shiftR, xor)
-import Data.Int                (Int8, Int16, Int32, Int64)
 import Data.Vector.Generic     (Vector)
 import Data.Word
 import qualified Data.Vector.Generic         as G
@@ -144,8 +143,8 @@ uniformWord64 :: (PrimMonad m) => Gen (PrimState m) -> m Word64
 uniformWord64 (Gen q) = do
     mti <- fromIntegral `liftM` M.unsafeRead q mti_idx
     when (mti >= nn) $ do
-         fill0 q 0
-         fill1 q (nn-mm)
+         fill0 0
+         fill1 (nn-mm)
          twist q (nn-1) 0 (mm-1)
     let mti' = if (mti >= nn) then 0 else mti
     x0  <- M.unsafeRead q mti'
@@ -155,16 +154,16 @@ uniformWord64 (Gen q) = do
     let x3 = x2 `xor` ((x2 `shiftL` 37) .&. 0xFFF7EEE000000000)
     let x4 = x3 `xor`  (x3 `shiftR` 43)
     return x4
-      where fill0 q i
+      where fill0 i
               | i >= nn-mm = return ()
               | otherwise  = do
                   twist q i (i+1) (i+mm)
-                  fill0 q (i+1)
-            fill1 q i
+                  fill0 (i+1)
+            fill1 i
               | i >= nn-1  = return ()
               | otherwise  = do
                   twist q i (i+1) (i+(mm-nn))
-                  fill1 q (i+1)
+                  fill1 (i+1)
 {-# INLINE uniformWord64 #-}
 
 uniformDouble :: (PrimMonad m) => Gen (PrimState m) -> m Double
