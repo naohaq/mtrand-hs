@@ -8,6 +8,9 @@ module MTRand
   , initByArray64
   , GenIO
 
+  , saveState
+  , restoreState
+
   , uniformWord64
   , uniformDouble
   ) where
@@ -98,6 +101,27 @@ initByArray64 seed = do
               let i'' = if i' >= nn then 1 else i'
               when (i' >= nn) (M.unsafeRead q (nn-1) >>= M.unsafeWrite q 0)
               fill1 q mt' i'' (k-1)
+
+
+saveState :: (PrimMonad m) => Gen (PrimState m) -> m (I.Vector Word64)
+saveState (Gen q) = G.freeze q
+
+checkMti :: (PrimMonad m) => M.MVector (PrimState m) Word64 -> m Bool
+checkMti q = do mti <- M.unsafeRead q mti_idx
+                if mti <= (fromIntegral nn + 1)
+                  then return True
+                  else return False
+
+restoreState :: (PrimMonad m) => (I.Vector Word64) -> m (Either String (Gen (PrimState m)))
+restoreState v
+  | G.length v /= (nn+1) = return (Left "Invalid state vector.")
+  | otherwise            =
+    do q <- G.thaw v
+       t <- checkMti q
+       if t
+         then return (Right (Gen q))
+         else return (Left "Invalid state vector.")
+
 
 twist :: (PrimMonad m) => M.MVector (PrimState m) Word64 -> Int -> Int -> Int -> m ()
 twist q i0 i1 i2 = do
