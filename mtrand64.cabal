@@ -8,7 +8,7 @@ license-file:        LICENSE
 author:              Naoyuki MORITA
 maintainer:          naoyuki.morita@gmail.com
 -- copyright:
-category:            Math, Statistics
+category:            Math, Statistics, Random
 build-type:          Simple
 extra-source-files:  CHANGELOG.md, README.md
 cabal-version:       >=1.10

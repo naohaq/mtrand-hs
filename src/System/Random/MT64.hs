@@ -10,8 +10,11 @@ module System.Random.MT64
   , GenIO
   , GenST
 
-  , saveState
-  , restoreState
+  , asGenIO
+  , asGenST
+
+  , save
+  , restore
 
   , uniformWord64
   , uniformDouble
@@ -33,6 +36,12 @@ newtype Gen s = Gen (M.MVector s Word64)
 type GenIO = Gen (PrimState IO)
 
 type GenST s = Gen (PrimState (ST s))
+
+asGenIO :: (GenIO -> IO a) -> (GenIO -> IO a)
+asGenIO = id
+
+asGenST :: (GenST s -> ST s a) -> (GenST s -> ST s a)
+asGenST = id
 
 nn :: Int
 nn = 312
@@ -108,24 +117,24 @@ initByArray64 seed = do
               fill1 q mt' i'' (k-1)
 
 
-saveState :: (PrimMonad m) => Gen (PrimState m) -> m (I.Vector Word64)
-saveState (Gen q) = G.freeze q
+save :: (PrimMonad m) => Gen (PrimState m) -> m (I.Vector Word64)
+save (Gen q) = G.freeze q
 
 checkMti :: (PrimMonad m) => M.MVector (PrimState m) Word64 -> m Bool
 checkMti q = do mti <- M.unsafeRead q mti_idx
-                if mti <= (fromIntegral nn + 1)
+                if mti <= (fromIntegral nn)
                   then return True
                   else return False
 
-restoreState :: (PrimMonad m) => (I.Vector Word64) -> m (Either String (Gen (PrimState m)))
-restoreState v
-  | G.length v /= (nn+1) = return (Left "Invalid state vector.")
+restore :: (PrimMonad m) => (I.Vector Word64) -> m (Gen (PrimState m))
+restore v
+  | G.length v /= (nn+1) = error "Invalid state vector."
   | otherwise            =
     do q <- G.thaw v
        t <- checkMti q
        if t
-         then return (Right (Gen q))
-         else return (Left "Invalid state vector.")
+         then return (Gen q)
+         else error "Invalid state vector."
 
 
 twist :: (PrimMonad m) => M.MVector (PrimState m) Word64 -> Int -> Int -> Int -> m ()
@@ -139,6 +148,14 @@ twist q i0 i1 i2 = do
     M.unsafeWrite q i0 mt'
 {-# INLINE twist #-}
 
+mixWord64 :: Word64 -> Word64
+mixWord64 x0 = x4
+  where x1 = x0 `xor` ((x0 `shiftR` 29) .&. 0x5555555555555555)
+        x2 = x1 `xor` ((x1 `shiftL` 17) .&. 0x71D67FFFEDA60000)
+        x3 = x2 `xor` ((x2 `shiftL` 37) .&. 0xFFF7EEE000000000)
+        x4 = x3 `xor`  (x3 `shiftR` 43)
+{-# INLINE mixWord64 #-}
+
 uniformWord64 :: (PrimMonad m) => Gen (PrimState m) -> m Word64
 uniformWord64 (Gen q) = do
     mti <- fromIntegral `liftM` M.unsafeRead q mti_idx
@@ -147,13 +164,9 @@ uniformWord64 (Gen q) = do
          fill1 (nn-mm)
          twist q (nn-1) 0 (mm-1)
     let mti' = if (mti >= nn) then 0 else mti
-    x0  <- M.unsafeRead q mti'
+    x <- mixWord64 `liftM` M.unsafeRead q mti'
     M.unsafeWrite q mti_idx (fromIntegral (mti'+1))
-    let x1 = x0 `xor` ((x0 `shiftR` 29) .&. 0x5555555555555555)
-    let x2 = x1 `xor` ((x1 `shiftL` 17) .&. 0x71D67FFFEDA60000)
-    let x3 = x2 `xor` ((x2 `shiftL` 37) .&. 0xFFF7EEE000000000)
-    let x4 = x3 `xor`  (x3 `shiftR` 43)
-    return x4
+    return x
       where fill0 i
               | i >= nn-mm = return ()
               | otherwise  = do
