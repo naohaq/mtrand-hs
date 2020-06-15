@@ -1,35 +1,107 @@
 {- -*- mode: haskell; coding: utf-8-unix -*-  -}
-{-# LANGUAGE BangPatterns, FlexibleContexts, ScopedTypeVariables #-}
-
+{-# LANGUAGE BangPatterns, DeriveDataTypeable, FlexibleContexts,
+    ScopedTypeVariables, TypeFamilies #-}
+-- |
+-- Module    : System.Random.MT64
+-- Copyright : (c) 2020 Naoyuki MORITA
+-- Licence   : MIT
+--
+-- Maintainer  : naoyuki.morita@gmail.com
+-- Stability   : experimental
+-- Portability : portable
+--
 module System.Random.MT64
-  (
-    Gen
-  , initGenRand64
-  , initByArray64
+    (
+    -- * Gen: Pseudo-Random Number Generators
+      Gen
+    , initGenRand64
+    , initByArray64
 
-  , GenIO
-  , GenST
+    -- ** Type helpers
+    , GenIO
+    , GenST
 
-  , asGenIO
-  , asGenST
+    , asGenIO
+    , asGenST
 
-  , save
-  , restore
+    -- * Variates: uniformly distributed values
+    , Variate(..)
 
-  , uniformWord64
-  , uniformDouble
-  , uniformOpen0to1
-  ) where
+    -- * State management
+    , save
+    , restore
+    ) where
 
 import Control.Monad           (liftM, when)
 import Control.Monad.Primitive (PrimMonad, PrimState)
 import Control.Monad.ST        (ST)
 import Data.Bits               ((.&.), (.|.), shiftL, shiftR, xor)
+import Data.Int                (Int8, Int16, Int32, Int64)
 import Data.Vector.Generic     (Vector)
 import Data.Word
 import qualified Data.Vector.Generic         as G
 import qualified Data.Vector.Unboxed         as I
 import qualified Data.Vector.Unboxed.Mutable as M
+
+-- | The class of types for which we can generate uniformly
+-- distributed random variates.
+class Variate a where
+    -- | Generate a single uniformly distributed random variate.  The
+    -- range of values produced varies by type:
+    uniform :: (PrimMonad m) => Gen (PrimState m) -> m a
+
+instance Variate Int8 where
+    uniform = uniform1 fromIntegral
+    {-# INLINE uniform #-}
+
+instance Variate Int16 where
+    uniform = uniform1 fromIntegral
+    {-# INLINE uniform #-}
+
+instance Variate Int32 where
+    uniform = uniform1 fromIntegral
+    {-# INLINE uniform #-}
+
+instance Variate Int64 where
+    uniform = uniform1 fromIntegral
+    {-# INLINE uniform #-}
+
+instance Variate Word8 where
+    uniform = uniform1 fromIntegral
+    {-# INLINE uniform #-}
+
+instance Variate Word16 where
+    uniform = uniform1 fromIntegral
+    {-# INLINE uniform #-}
+
+instance Variate Word32 where
+    uniform = uniform1 fromIntegral
+    {-# INLINE uniform #-}
+
+instance Variate Word64 where
+    uniform = uniform1 id
+    {-# INLINE uniform #-}
+
+instance Variate Bool where
+    uniform = uniform1 wordToBool
+    {-# INLINE uniform #-}
+
+instance Variate Float where
+    uniform = uniform1 wordToFloat
+    {-# INLINE uniform #-}
+
+instance Variate Double where
+    uniform = uniformDouble
+    {-# INLINE uniform #-}
+
+wordToBool :: Word64 -> Bool
+wordToBool w = w < 0x8000000000000000
+{-# INLINE wordToBool #-}
+
+wordToFloat :: Word64 -> Float
+wordToFloat x = fromIntegral y * (1.0/16777216.0)
+  where y = x `shiftR` 40
+{-# INLINE wordToFloat #-}
 
 newtype Gen s = Gen (M.MVector s Word64)
 
@@ -179,6 +251,12 @@ uniformWord64 (Gen q) = do
                   fill1 (i+1)
 {-# INLINE uniformWord64 #-}
 
+uniform1 :: (PrimMonad m) => (Word64 -> a) -> Gen (PrimState m) -> m a
+uniform1 f gen = do
+    i <- uniformWord64 gen
+    return $! f i
+{-# INLINE uniform1 #-}
+
 uniformDouble :: (PrimMonad m) => Gen (PrimState m) -> m Double
 uniformDouble gen = do
     w <- uniformWord64 gen
@@ -186,13 +264,5 @@ uniformDouble gen = do
     let v  = fromIntegral w' * (1.0/9007199254740992.0)
     return v
 {-# INLINE uniformDouble #-}
-
-uniformOpen0to1 :: (PrimMonad m) => Gen (PrimState m) -> m Double
-uniformOpen0to1 gen = do
-    w <- uniformWord64 gen
-    let w' = w `shiftR` 12
-    let v  = (fromIntegral w' + 0.5) * (1.0/4503599627370496.0)
-    return v
-{-# INLINE uniformOpen0to1 #-}
 
 -- EOF
