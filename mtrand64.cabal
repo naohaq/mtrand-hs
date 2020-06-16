@@ -3,7 +3,7 @@ version:             0.1.0.0
 synopsis:            Yet another implementation of MT19937 for Haskell
 -- description:
 homepage:            https://github.com/naohaq/mtrand-hs/
-license:             MIT
+license:             BSD3
 license-file:        LICENSE
 author:              Naoyuki MORITA
 maintainer:          naoyuki.morita@gmail.com

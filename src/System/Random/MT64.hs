@@ -4,7 +4,7 @@
 -- |
 -- Module    : System.Random.MT64
 -- Copyright : (c) 2020 Naoyuki MORITA
--- Licence   : MIT
+-- Licence   : BSD3
 --
 -- Maintainer  : naoyuki.morita@gmail.com
 -- Stability   : experimental
