@@ -1,6 +1,7 @@
 {- -*- mode: haskell; coding: utf-8-unix -*-  -}
 {-# LANGUAGE BangPatterns, DeriveDataTypeable, FlexibleContexts,
-    ScopedTypeVariables, TypeFamilies #-}
+    FlexibleInstances, MultiParamTypeClasses, ScopedTypeVariables,
+    TypeFamilies #-}
 -- |
 -- Module    : System.Random.MT64
 -- Copyright : (c) 2020 Naoyuki MORITA
@@ -17,32 +18,23 @@ module System.Random.MT64
     , initGenRand64
     , initByArray64
 
-    -- ** Type helpers
-    , GenIO
-    , GenST
-
-    , asGenIO
-    , asGenST
-
-    -- * Variates: uniformly distributed values
-    , Variate(..)
-
-    -- * State management
-    , save
-    , restore
     ) where
 
+import System.Random.Stateful
 import Control.Monad           (liftM, when)
-import Control.Monad.Primitive (PrimMonad, PrimState)
-import Control.Monad.ST        (ST)
+import Control.Monad.Primitive (PrimMonad, PrimState, unsafeSTToPrim)
+-- import Control.Monad.ST        (ST)
 import Data.Bits               ((.&.), (.|.), shiftL, shiftR, xor)
-import Data.Int                (Int8, Int16, Int32, Int64)
+-- import Data.Int                (Int8, Int16, Int32, Int64)
+import Data.Typeable           (Typeable)
 import Data.Vector.Generic     (Vector)
 import Data.Word
 import qualified Data.Vector.Generic         as G
 import qualified Data.Vector.Unboxed         as I
 import qualified Data.Vector.Unboxed.Mutable as M
 
+
+{-
 -- | The class of types for which we can generate uniformly
 -- distributed random variates.
 class Variate a where
@@ -102,9 +94,11 @@ wordToFloat :: Word64 -> Float
 wordToFloat x = fromIntegral y * (1.0/16777216.0)
   where y = x `shiftR` 40
 {-# INLINE wordToFloat #-}
+ -}
 
 newtype Gen s = Gen (M.MVector s Word64)
 
+{-
 type GenIO = Gen (PrimState IO)
 
 type GenST s = Gen (PrimState (ST s))
@@ -114,6 +108,16 @@ asGenIO = id
 
 asGenST :: (GenST s -> ST s a) -> (GenST s -> ST s a)
 asGenST = id
+ -}
+
+instance (s ~ PrimState m, PrimMonad m) => StatefulGen (Gen s) m where
+  uniformWord64 = uniformW64
+  uniformShortByteString n g = unsafeSTToPrim (genShortByteStringST n (uniformW64 g))
+
+instance (PrimMonad m) => FrozenGen Seed m where
+  type MutableGen Seed m = Gen (PrimState m)
+  thawGen = restore
+  freezeGen = save
 
 nn :: Int
 nn = 312
@@ -188,9 +192,13 @@ initByArray64 seed = do
               when (i' >= nn) (M.unsafeRead q (nn-1) >>= M.unsafeWrite q 0)
               fill1 q mt' i'' (k-1)
 
+newtype Seed = Seed {
+  fromSeed :: I.Vector Word64
+  }
+  deriving (Eq, Show, Typeable)
 
-save :: (PrimMonad m) => Gen (PrimState m) -> m (I.Vector Word64)
-save (Gen q) = G.freeze q
+save :: (PrimMonad m) => Gen (PrimState m) -> m Seed
+save (Gen q) = Seed `liftM` G.freeze q
 
 checkMti :: (PrimMonad m) => M.MVector (PrimState m) Word64 -> m Bool
 checkMti q = do mti <- M.unsafeRead q mti_idx
@@ -198,8 +206,8 @@ checkMti q = do mti <- M.unsafeRead q mti_idx
                   then return True
                   else return False
 
-restore :: (PrimMonad m) => (I.Vector Word64) -> m (Gen (PrimState m))
-restore v
+restore :: (PrimMonad m) => Seed -> m (Gen (PrimState m))
+restore (Seed v)
   | G.length v /= (nn+1) = error "Invalid state vector."
   | otherwise            =
     do q <- G.thaw v
@@ -228,8 +236,8 @@ mixWord64 x0 = x4
         x4 = x3 `xor`  (x3 `shiftR` 43)
 {-# INLINE mixWord64 #-}
 
-uniformWord64 :: (PrimMonad m) => Gen (PrimState m) -> m Word64
-uniformWord64 (Gen q) = do
+uniformW64 :: (PrimMonad m) => Gen (PrimState m) -> m Word64
+uniformW64 (Gen q) = do
     mti <- fromIntegral `liftM` M.unsafeRead q mti_idx
     when (mti >= nn) $ do
          fill0 0
@@ -249,14 +257,17 @@ uniformWord64 (Gen q) = do
               | otherwise  = do
                   twist q i (i+1) (i+(mm-nn))
                   fill1 (i+1)
-{-# INLINE uniformWord64 #-}
+{-# INLINE uniformW64 #-}
 
+{-
 uniform1 :: (PrimMonad m) => (Word64 -> a) -> Gen (PrimState m) -> m a
 uniform1 f gen = do
     i <- uniformWord64 gen
     return $! f i
 {-# INLINE uniform1 #-}
+ -}
 
+{-
 uniformDouble :: (PrimMonad m) => Gen (PrimState m) -> m Double
 uniformDouble gen = do
     w <- uniformWord64 gen
@@ -264,5 +275,6 @@ uniformDouble gen = do
     let v  = fromIntegral w' * (1.0/9007199254740992.0)
     return v
 {-# INLINE uniformDouble #-}
+ -}
 
 -- EOF
