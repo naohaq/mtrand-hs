@@ -1,6 +1,6 @@
 name:                mtrand64
 version:             0.1.0.1
-synopsis:            Pure Haskell implementation of MT19937 for Haskell
+synopsis:            Pure Haskell implementation of MT19937 (64bit version)
 -- description:
 homepage:            https://github.com/naohaq/mtrand-hs/
 license:             BSD3

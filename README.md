@@ -1,2 +1,2 @@
 # mtrand-hs
-Yet another implementation of MT19937 for Haskell
+Pure Haskell implementation of MT19937
