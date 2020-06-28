@@ -1,6 +1,7 @@
 {- -*- mode: haskell; coding: utf-8-unix -*-  -}
 {-# LANGUAGE BangPatterns, DeriveDataTypeable, FlexibleContexts,
-    FlexibleInstances, MultiParamTypeClasses, ScopedTypeVariables #-}
+    FlexibleInstances, MultiParamTypeClasses, ScopedTypeVariables,
+    TypeFamilies #-}
 -- |
 -- Module    : System.Random.MT64
 -- Copyright : (c) 2020 Naoyuki MORITA
@@ -14,8 +15,8 @@ module System.Random.MT64
     (
     -- * Gen: Pseudo-Random Number Generators
       Gen
-    , initGenRand64
-    , initByArray64
+    , initGenRand
+    , initByArray
 
     ) where
 
@@ -65,8 +66,8 @@ lm :: Word64
 lm = 0x000000007FFFFFFF
 {-# INLINE lm #-}
 
-initGenRand64 :: (PrimMonad m) => Word64 -> m (Gen (PrimState m))
-initGenRand64 seed = do
+initGenRand :: (PrimMonad m) => Word64 -> m (Gen (PrimState m))
+initGenRand seed = do
     q <- M.unsafeNew (nn+1)
     M.unsafeWrite q 0 seed
     fill q seed 1
@@ -79,9 +80,9 @@ initGenRand64 seed = do
               else
                 M.unsafeWrite q mti_idx (fromIntegral idx)
 
-initByArray64 :: (PrimMonad m, Vector v Word64) => v Word64 -> m (Gen (PrimState m))
-initByArray64 seed = do
-    Gen q <- initGenRand64 19650218
+initByArray :: (PrimMonad m, Vector v Word64) => v Word64 -> m (Gen (PrimState m))
+initByArray seed = do
+    Gen q <- initGenRand 19650218
     mt0 <- M.unsafeRead q 0
     let k = if nn > l then nn else l
     i <- fill0 q mt0 1 0 k
