@@ -1,7 +1,6 @@
 {- -*- mode: haskell; coding: utf-8-unix -*-  -}
 {-# LANGUAGE BangPatterns, DeriveDataTypeable, FlexibleContexts,
-    FlexibleInstances, MultiParamTypeClasses, ScopedTypeVariables,
-    TypeFamilies #-}
+    FlexibleInstances, MultiParamTypeClasses, ScopedTypeVariables #-}
 -- |
 -- Module    : System.Random.MT64
 -- Copyright : (c) 2020 Naoyuki MORITA
